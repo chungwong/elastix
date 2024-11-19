@@ -12,7 +12,7 @@ defmodule Elastix.Bulk do
 
   ## Examples
 
-      iex> Elastix.Bulk.post("http://localhost:9200", [%{index: %{_id: "1"}}, %{user: "kimchy"}], index: "twitter", type: "tweet")
+      iex> Elastix.Bulk.post("http://localhost:9200", [%{index: %{_id: "1"}}, %{user: "kimchy"}], index: "twitter")
       {:ok, %HTTPoison.Response{...}}
   """
   @spec post(
@@ -29,7 +29,7 @@ defmodule Elastix.Bulk do
 
     path =
       Keyword.get(options, :index)
-      |> make_path(Keyword.get(options, :type), query_params)
+      |> make_path(query_params)
 
     httpoison_options = Keyword.get(options, :httpoison_options, [])
 
@@ -55,8 +55,12 @@ defmodule Elastix.Bulk do
     httpoison_options = Keyword.get(options, :httpoison_options, [])
 
     (elastic_url <>
-       make_path(Keyword.get(options, :index), Keyword.get(options, :type), query_params))
-    |> HTTP.put(Enum.map(lines, fn line -> JSON.encode!(line) <> "\n" end), [], httpoison_options)
+       make_path(Keyword.get(options, :index), query_params))
+    |> HTTP.put(
+      Enum.map(lines, fn line -> JSON.encode!(line) <> "\n" end),
+      [],
+      httpoison_options
+    )
   end
 
   @doc """
@@ -70,17 +74,16 @@ defmodule Elastix.Bulk do
           query_params :: Keyword.t()
         ) :: HTTP.resp()
   def post_raw(elastic_url, raw_data, options \\ [], query_params \\ []) do
-
     httpoison_options = Keyword.get(options, :httpoison_options, [])
 
     (elastic_url <>
-       make_path(Keyword.get(options, :index), Keyword.get(options, :type), query_params))
+       make_path(Keyword.get(options, :index), query_params))
     |> HTTP.put(raw_data, [], httpoison_options)
   end
 
   @doc false
-  def make_path(index_name, type_name, query_params) do
-    path = make_base_path(index_name, type_name)
+  def make_path(index_name, query_params) do
+    path = make_base_path(index_name)
 
     case query_params do
       [] -> path
@@ -88,7 +91,6 @@ defmodule Elastix.Bulk do
     end
   end
 
-  defp make_base_path(nil, nil), do: "/_bulk"
-  defp make_base_path(index_name, nil), do: "/#{index_name}/_bulk"
-  defp make_base_path(index_name, type_name), do: "/#{index_name}/#{type_name}/_bulk"
+  defp make_base_path(nil), do: "/_bulk"
+  defp make_base_path(index_name), do: "/#{index_name}/_bulk"
 end

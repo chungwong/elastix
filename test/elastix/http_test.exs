@@ -19,14 +19,14 @@ defmodule Elastix.HTTPTest do
     assert response.status_code == 200
   end
 
-  test "post should respond with 400" do
+  test "post should respond with 405" do
     {_, response} = HTTP.post(@test_url, [])
-    assert response.status_code == 400
+    assert response.status_code == 405
   end
 
-  test "put should respond with 400" do
+  test "put should respond with 405" do
     {_, response} = HTTP.put(@test_url, [])
-    assert response.status_code == 400
+    assert response.status_code == 405
   end
 
   test "delete should respond with 400" do

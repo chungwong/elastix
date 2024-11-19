@@ -13,29 +13,28 @@ defmodule Elastix.BulkTest do
     :ok
   end
 
-  test "make_path should make url from index name, type, and query params" do
-    assert Bulk.make_path(@test_index, "tweet", version: 34, ttl: "1d") ==
-             "/#{@test_index}/tweet/_bulk?version=34&ttl=1d"
-  end
-
   test "make_path should make url from index name and query params" do
-    assert Bulk.make_path(@test_index, nil, version: 34, ttl: "1d") ==
+    assert Bulk.make_path(@test_index, version: 34, ttl: "1d") ==
              "/#{@test_index}/_bulk?version=34&ttl=1d"
   end
 
   test "make_path should make url from query params" do
-    assert Bulk.make_path(nil, nil, version: 34, ttl: "1d") == "/_bulk?version=34&ttl=1d"
+    assert Bulk.make_path(nil, version: 34, ttl: "1d") == "/_bulk?version=34&ttl=1d"
   end
 
   test "bulk accepts httpoison options" do
     lines = [
-        %{index: %{_id: "1"}},
-        %{field: "value1"},
-        %{index: %{_id: "2"}},
-        %{field: "value2"}
-      ]
+      %{index: %{_id: "1"}},
+      %{field: "value1"},
+      %{index: %{_id: "2"}},
+      %{field: "value2"}
+    ]
+
     {:error, %HTTPoison.Error{reason: :timeout}} =
-      Bulk.post @test_url, lines, index: @test_index, type: "message", httpoison_options: [recv_timeout: 0]
+      Bulk.post(@test_url, lines,
+        index: @test_index,
+        httpoison_options: [recv_timeout: 0]
+      )
   end
 
   describe "test bulks with index and type in URL" do
@@ -50,70 +49,15 @@ defmodule Elastix.BulkTest do
     end
 
     test "post bulk should execute it", %{lines: lines} do
-      {:ok, response} = Bulk.post(@test_url, lines, index: @test_index, type: "message")
-
-      assert response.status_code == 200
-
-      assert {:ok, %{status_code: 200}} =
-               Document.get(@test_url, @test_index, "message", "1")
-
-      assert {:ok, %{status_code: 200}} =
-               Document.get(@test_url, @test_index, "message", "2")
-    end
-
-    test "post bulk with raw body should execute it", %{lines: lines} do
-      {:ok, response} =
-        Bulk.post_raw(
-          @test_url,
-          Enum.map(lines, fn line -> Poison.encode!(line) <> "\n" end),
-          index: @test_index,
-          type: "message"
-        )
-
-      assert response.status_code == 200
-
-      assert {:ok, %{status_code: 200}} =
-               Document.get(@test_url, @test_index, "message", "1")
-
-      assert {:ok, %{status_code: 200}} =
-               Document.get(@test_url, @test_index, "message", "2")
-    end
-
-    test "post bulk sending iolist should execute it", %{lines: lines} do
-      {:ok, response} =
-        Bulk.post_to_iolist(@test_url, lines, index: @test_index, type: "message")
-
-      assert response.status_code == 200
-
-      assert {:ok, %{status_code: 200}} =
-               Document.get(@test_url, @test_index, "message", "1")
-
-      assert {:ok, %{status_code: 200}} =
-               Document.get(@test_url, @test_index, "message", "2")
-    end
-  end
-
-  describe "test bulks with index only in URL" do
-    setup do
-      {:ok,
-       lines: [
-         %{index: %{_id: "1", _type: "message"}},
-         %{field: "value1"},
-         %{index: %{_id: "2", _type: "message"}},
-         %{field: "value2"}
-       ]}
-    end
-
-    test "post bulk should execute it", %{lines: lines} do
       {:ok, response} = Bulk.post(@test_url, lines, index: @test_index)
 
       assert response.status_code == 200
 
       assert {:ok, %{status_code: 200}} =
-               Document.get(@test_url, @test_index, "message", "1")
+               Document.get(@test_url, @test_index, "1")
 
       assert {:ok, %{status_code: 200}} =
-               Document.get(@test_url, @test_index, "message", "2")
+               Document.get(@test_url, @test_index, "2")
     end
 
     test "post bulk with raw body should execute it", %{lines: lines} do
@@ -127,10 +71,64 @@ defmodule Elastix.BulkTest do
       assert response.status_code == 200
 
       assert {:ok, %{status_code: 200}} =
-               Document.get(@test_url, @test_index, "message", "1")
+               Document.get(@test_url, @test_index, "1")
 
       assert {:ok, %{status_code: 200}} =
-               Document.get(@test_url, @test_index, "message", "2")
+               Document.get(@test_url, @test_index, "2")
+    end
+
+    test "post bulk sending iolist should execute it", %{lines: lines} do
+      {:ok, response} =
+        Bulk.post_to_iolist(@test_url, lines, index: @test_index)
+
+      assert response.status_code == 200
+
+      assert {:ok, %{status_code: 200}} =
+               Document.get(@test_url, @test_index, "1")
+
+      assert {:ok, %{status_code: 200}} =
+               Document.get(@test_url, @test_index, "2")
+    end
+  end
+
+  describe "test bulks with index only in URL" do
+    setup do
+      {:ok,
+       lines: [
+         %{index: %{_id: "1"}},
+         %{field: "value1"},
+         %{index: %{_id: "2"}},
+         %{field: "value2"}
+       ]}
+    end
+
+    test "post bulk should execute it", %{lines: lines} do
+      {:ok, response} = Bulk.post(@test_url, lines, index: @test_index)
+
+      assert response.status_code == 200
+
+      assert {:ok, %{status_code: 200}} =
+               Document.get(@test_url, @test_index, "1")
+
+      assert {:ok, %{status_code: 200}} =
+               Document.get(@test_url, @test_index, "2")
+    end
+
+    test "post bulk with raw body should execute it", %{lines: lines} do
+      {:ok, response} =
+        Bulk.post_raw(
+          @test_url,
+          Enum.map(lines, fn line -> Poison.encode!(line) <> "\n" end),
+          index: @test_index
+        )
+
+      assert response.status_code == 200
+
+      assert {:ok, %{status_code: 200}} =
+               Document.get(@test_url, @test_index, "1")
+
+      assert {:ok, %{status_code: 200}} =
+               Document.get(@test_url, @test_index, "2")
     end
 
     test "post bulk sending iolist should execute it", %{lines: lines} do
@@ -139,10 +137,10 @@ defmodule Elastix.BulkTest do
       assert response.status_code == 200
 
       assert {:ok, %{status_code: 200}} =
-               Document.get(@test_url, @test_index, "message", "1")
+               Document.get(@test_url, @test_index, "1")
 
       assert {:ok, %{status_code: 200}} =
-               Document.get(@test_url, @test_index, "message", "2")
+               Document.get(@test_url, @test_index, "2")
     end
   end
 
@@ -150,9 +148,9 @@ defmodule Elastix.BulkTest do
     setup do
       {:ok,
        lines: [
-         %{index: %{_id: "1", _type: "message", _index: @test_index}},
+         %{index: %{_id: "1", _index: @test_index}},
          %{field: "value1"},
-         %{index: %{_id: "2", _type: "message", _index: @test_index}},
+         %{index: %{_id: "2", _index: @test_index}},
          %{field: "value2"}
        ]}
     end
@@ -163,10 +161,10 @@ defmodule Elastix.BulkTest do
       assert response.status_code == 200
 
       assert {:ok, %{status_code: 200}} =
-               Document.get(@test_url, @test_index, "message", "1")
+               Document.get(@test_url, @test_index, "1")
 
       assert {:ok, %{status_code: 200}} =
-               Document.get(@test_url, @test_index, "message", "2")
+               Document.get(@test_url, @test_index, "2")
     end
 
     test "post bulk with raw body should execute it", %{lines: lines} do
@@ -179,10 +177,10 @@ defmodule Elastix.BulkTest do
       assert response.status_code == 200
 
       assert {:ok, %{status_code: 200}} =
-               Document.get(@test_url, @test_index, "message", "1")
+               Document.get(@test_url, @test_index, "1")
 
       assert {:ok, %{status_code: 200}} =
-               Document.get(@test_url, @test_index, "message", "2")
+               Document.get(@test_url, @test_index, "2")
     end
 
     test "post bulk sending iolist should execute it", %{lines: lines} do
@@ -191,10 +189,10 @@ defmodule Elastix.BulkTest do
       assert response.status_code == 200
 
       assert {:ok, %{status_code: 200}} =
-               Document.get(@test_url, @test_index, "message", "1")
+               Document.get(@test_url, @test_index, "1")
 
       assert {:ok, %{status_code: 200}} =
-               Document.get(@test_url, @test_index, "message", "2")
+               Document.get(@test_url, @test_index, "2")
     end
   end
 end

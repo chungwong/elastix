@@ -25,14 +25,13 @@ defmodule Elastix.Search do
   @spec search(
           elastic_url :: String.t(),
           index :: String.t() | list,
-          types :: list,
           data :: map | list
         ) :: HTTP.resp()
-  def search(elastic_url, index, types, data) when is_list(data),
-    do: search(elastic_url, index, types, data, [])
+  def search(elastic_url, index, data) when is_list(data),
+    do: search(elastic_url, index, data, [])
 
-  def search(elastic_url, index, types, data),
-    do: search(elastic_url, index, types, data, [])
+  def search(elastic_url, index, data),
+    do: search(elastic_url, index, data, [])
 
   @doc """
   Same as `search/4` but allows to specify query params and options for
@@ -41,31 +40,30 @@ defmodule Elastix.Search do
   @spec search(
           elastic_url :: String.t(),
           index :: String.t() | list,
-          types :: list,
           data :: map | list,
           query_params :: Keyword.t(),
           options :: Keyword.t()
         ) :: HTTP.resp()
-  def search(elastic_url, index, types, data, query_params, options \\ [])
+  def search(elastic_url, index, data, query_params, options \\ [])
 
-  def search(elastic_url, index, types, data, query_params, options)
+  def search(elastic_url, index, data, query_params, options)
       when is_list(index) do
-    search(elastic_url, Enum.join(index, ","), types, data, query_params, options)
+    search(elastic_url, Enum.join(index, ","), data, query_params, options)
   end
 
-  def search(elastic_url, index, types, data, query_params, options)
+  def search(elastic_url, index, data, query_params, options)
       when is_list(data) do
     data =
       Enum.reduce(data, [], fn d, acc -> ["\n", JSON.encode!(d) | acc] end)
       |> Enum.reverse()
       |> IO.iodata_to_binary()
 
-    prepare_url(elastic_url, make_path(index, types, query_params, "_msearch"))
+    prepare_url(elastic_url, make_path(index, query_params, "_msearch"))
     |> HTTP.post(data, [], options)
   end
 
-  def search(elastic_url, index, types, data, query_params, options) do
-    prepare_url(elastic_url, make_path(index, types, query_params))
+  def search(elastic_url, index, data, query_params, options) do
+    prepare_url(elastic_url, make_path(index, query_params))
     |> HTTP.post(JSON.encode!(data), [], options)
   end
 
@@ -94,10 +92,10 @@ defmodule Elastix.Search do
       iex> Elastix.Search.count("http://localhost:9200", "twitter", ["tweet"], %{query: %{term: %{user: "kimchy"}}})
       {:ok, %HTTPoison.Response{...}}
   """
-  @spec count(elastic_url :: String.t(), index :: String.t(), types :: list, data :: map) ::
+  @spec count(elastic_url :: String.t(), index :: String.t(), data :: map) ::
           HTTP.resp()
-  def count(elastic_url, index, types, data),
-    do: count(elastic_url, index, types, data, [])
+  def count(elastic_url, index, data),
+    do: count(elastic_url, index, data, [])
 
   @doc """
   Same as `count/4` but allows to specify query params and options for
@@ -106,27 +104,20 @@ defmodule Elastix.Search do
   @spec count(
           elastic_url :: String.t(),
           index :: String.t(),
-          types :: list,
           data :: map,
           query_params :: Keyword.t(),
           options :: Keyword.t()
         ) :: HTTP.resp()
-  def count(elastic_url, index, types, data, query_params, options \\ []) do
-    (elastic_url <> make_path(index, types, query_params, "_count"))
+  def count(elastic_url, index, data, query_params, options \\ []) do
+    (elastic_url <> make_path(index, query_params, "_count"))
     |> HTTP.post(JSON.encode!(data), [], options)
   end
 
   @doc false
-  def make_path(index, types, query_params, api_type \\ "_search") do
+  def make_path(index, query_params, api_type \\ "_search") do
     path_root = "/#{index}"
 
-    path =
-      case types do
-        [] -> path_root
-        _ -> path_root <> "/" <> Enum.join(types, ",")
-      end
-
-    full_path = "#{path}/#{api_type}"
+    full_path = "#{path_root}/#{api_type}"
 
     case query_params do
       [] -> full_path

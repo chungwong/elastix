@@ -12,19 +12,18 @@ defmodule Elastix.Document do
 
   ## Examples
 
-      iex> Elastix.Document.index("http://localhost:9200", "twitter", "tweet", "42", %{user: "kimchy", post_date: "2009-11-15T14:12:12", message: "trying out Elastix"})
+      iex> Elastix.Document.index("http://localhost:9200", "twitter", "42", %{user: "kimchy", post_date: "2009-11-15T14:12:12", message: "trying out Elastix"})
       {:ok, %HTTPoison.Response{...}}
   """
   @spec index(
           elastic_url :: String.t(),
           index :: String.t(),
-          type :: String.t(),
           id :: String.t(),
           data :: map,
           query_params :: Keyword.t()
         ) :: HTTP.resp()
-  def index(elastic_url, index_name, type_name, id, data, query_params \\ []) do
-    prepare_url(elastic_url, make_path(index_name, type_name, query_params, id))
+  def index(elastic_url, index_name, id, data, query_params \\ []) do
+    prepare_url(elastic_url, make_doc_path(index_name, query_params, id))
     |> HTTP.put(JSON.encode!(data))
   end
 
@@ -33,18 +32,17 @@ defmodule Elastix.Document do
 
   ## Examples
 
-      iex> Elastix.Document.index_new("http://localhost:9200", "twitter", "tweet", %{user: "kimchy", post_date: "2009-11-15T14:12:12", message: "trying out Elastix"})
+      iex> Elastix.Document.index_new("http://localhost:9200", "twitter", %{user: "kimchy", post_date: "2009-11-15T14:12:12", message: "trying out Elastix"})
       {:ok, %HTTPoison.Response{...}}
   """
   @spec index_new(
           elastic_url :: String.t(),
           index :: String.t(),
-          type :: String.t(),
           data :: map,
           query_params :: Keyword.t()
         ) :: HTTP.resp()
-  def index_new(elastic_url, index_name, type_name, data, query_params \\ []) do
-    prepare_url(elastic_url, make_path(index_name, type_name, query_params))
+  def index_new(elastic_url, index_name, data, query_params \\ []) do
+    prepare_url(elastic_url, make_doc_path(index_name, query_params))
     |> HTTP.post(JSON.encode!(data))
   end
 
@@ -53,18 +51,17 @@ defmodule Elastix.Document do
 
   ## Examples
 
-      iex> Elastix.Document.get("http://localhost:9200", "twitter", "tweet", "42")
+      iex> Elastix.Document.get("http://localhost:9200", "twitter", "42")
       {:ok, %HTTPoison.Response{...}}
   """
   @spec get(
           elastic_url :: String.t(),
           index :: String.t(),
-          type :: String.t(),
           id :: String.t(),
           query_params :: Keyword.t()
         ) :: HTTP.resp()
-  def get(elastic_url, index_name, type_name, id, query_params \\ []) do
-    prepare_url(elastic_url, make_path(index_name, type_name, query_params, id))
+  def get(elastic_url, index_name, id, query_params \\ []) do
+    prepare_url(elastic_url, make_doc_path(index_name, query_params, id))
     |> HTTP.get()
   end
 
@@ -76,12 +73,11 @@ defmodule Elastix.Document do
           elastic_url :: String.t(),
           query :: map,
           index :: String.t(),
-          type :: String.t(),
           query_params :: Keyword.t()
         ) :: HTTP.resp()
-  def mget(elastic_url, query, index_name \\ nil, type_name \\ nil, query_params \\ []) do
+  def mget(elastic_url, query, index_name \\ nil, query_params \\ []) do
     path =
-      [index_name, type_name]
+      [index_name]
       |> Enum.reject(&is_nil/1)
       |> Enum.join("/")
 
@@ -98,18 +94,17 @@ defmodule Elastix.Document do
 
   ## Examples
 
-      iex> Elastix.Document.delete("http://localhost:9200", "twitter", "tweet", "42")
+      iex> Elastix.Document.delete("http://localhost:9200", "twitter", "42")
       {:ok, %HTTPoison.Response{...}}
   """
   @spec delete(
           elastic_url :: String.t(),
           index :: String.t(),
-          type :: String.t(),
           id :: String.t(),
           query_params :: Keyword.t()
         ) :: HTTP.resp()
-  def delete(elastic_url, index_name, type_name, id, query_params \\ []) do
-    prepare_url(elastic_url, make_path(index_name, type_name, query_params, id))
+  def delete(elastic_url, index_name, id, query_params \\ []) do
+    prepare_url(elastic_url, make_doc_path(index_name, query_params, id))
     |> HTTP.delete()
   end
 
@@ -134,20 +129,19 @@ defmodule Elastix.Document do
 
   ## Examples
 
-      iex> Elastix.Document.update("http://localhost:9200", "twitter", "tweet", "42", %{user: "kimchy", message: "trying out Elastix.Document.update/5"})
+      iex> Elastix.Document.update("http://localhost:9200", "twitter", "42", %{user: "kimchy", message: "trying out Elastix.Document.update/5"})
       {:ok, %HTTPoison.Response{...}}
   """
   @spec update(
           elastic_url :: String.t(),
           index :: String.t(),
-          type :: String.t(),
           id :: String.t(),
           data :: map,
           query_params :: Keyword.t()
         ) :: HTTP.resp()
-  def update(elastic_url, index_name, type_name, id, data, query_params \\ []) do
+  def update(elastic_url, index_name, id, data, query_params \\ []) do
     elastic_url
-    |> prepare_url(make_path(index_name, type_name, query_params, id, "_update"))
+    |> prepare_url(make_path(index_name, query_params, id, "_update"))
     |> HTTP.post(JSON.encode!(data))
   end
 
@@ -180,14 +174,20 @@ defmodule Elastix.Document do
   end
 
   @doc false
-  def make_path(index_name, type_name, query_params) do
-    "/#{index_name}/#{type_name}"
+  def make_doc_path(index_name, query_params) do
+    "/#{index_name}/_doc/"
     |> HTTP.append_query_string(query_params)
   end
 
   @doc false
-  def make_path(index_name, type_name, query_params, id, suffix \\ nil) do
-    "/#{index_name}/#{type_name}/#{id}/#{suffix}"
+  def make_doc_path(index_name, query_params, id, suffix \\ nil) do
+    "/#{index_name}/_doc/#{id}/#{suffix}"
+    |> HTTP.append_query_string(query_params)
+  end
+
+  @doc false
+  def make_path(index_name, query_params, id, suffix \\ nil) do
+    "/#{index_name}/#{suffix}/#{id}"
     |> HTTP.append_query_string(query_params)
   end
 end
